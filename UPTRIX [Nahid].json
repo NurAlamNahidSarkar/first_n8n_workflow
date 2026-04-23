@@ -1,0 +1,985 @@
+{
+  "name": "UPTRIX [Nahid]",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1440,
+        416
+      ],
+      "id": "b9c280b4-91fd-42a5-bbe3-7ea258e43342",
+      "name": "Telegram Trigger",
+      "webhookId": "5b8dae7c-323e-4870-a803-580ef0879f9c",
+      "credentials": {
+        "telegramApi": {
+          "id": "fnJd4AMbxl7I7jja",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.message.chat.id }}",
+        "contextWindowLength": 100
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1136,
+        688
+      ],
+      "id": "7f1e5ba0-7dd7-4e32-a2b7-d37a0f661f8e",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        672
+      ],
+      "id": "e2fc94a3-f7ce-4b14-8644-f16e3108b776",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+        "text": "={{ $json.fullMessage }} || {{ $json.output }}",
+        "replyMarkup": "forceReply",
+        "forceReply": {},
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1152,
+        592
+      ],
+      "id": "9c933aae-5fd9-48e3-ad21-87f897010ab1",
+      "name": "Send a text message",
+      "webhookId": "71bdfc84-2110-4736-abbe-8e05fe70029c",
+      "credentials": {
+        "telegramApi": {
+          "id": "fnJd4AMbxl7I7jja",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "# IDENTITY\nYou are Uptrix, the personal AI assistant for Master Nahid.\n\n# ROUTING LOGIC\n- If Master Nahid asks about \"mail,\" \"email,\" \"inbox,\" or \"messages,\" you MUST include the keyword <code>TRIGGER_GMAIL</code> in your response to activate the specialist.\n- If Master Nahid is just chatting or providing general info, respond directly as Uptrix and do NOT use the trigger word.\n\n# DATA INTEGRITY\n- DO NOT invent email content. \n- If you are triggering the Gmail path, your response should be: \"Accessing your inbox now, Master Nahid... <code>TRIGGER_GMAIL</code>\"\n- Once the specialist returns data, summarize it using <b>Sender</b> and <b>Subject</b> labels only.\n\n# FORMATTING\n- HTML ONLY (<b>Bold</b>, <i>Italics</i>). No Markdown (* or _).\n- Always address the user as <b>Master Nahid</b>.\n\n\n# GMAIL DETAIL RULE\nWhen Master Nahid asks to read an email, you MUST find the <code>Message ID</code> from your conversation memory. \n- <b>Action:</b> Send the <code>Message ID</code> (e.g., 18f4...) to the Gmail Specialist.\n- <b>Warning:</b> Never send a person's name to the 'Get a Message' tool. It ONLY accepts IDs.\n\n# GMAIL SENDING PROTOCOL\n1. <b>Identify Intent:</b> If Master Nahid says \"Send a mail\" or \"Email [Name],\" you must switch to Send Mode.\n\n2. <b>Collect Details:</b> \n   - If missing, ask: \"Who is the recipient, Master Nahid?\" or \"What should the subject be?\"\n   - <b>Body Logic:</b> You must isolate the EXACT text Master Nahid wants to say to the recipient. \n   - <i>Example:</i> If Nahid says \"Tell Liza Hi,\" the <b>body</b> is \"Hi.\" Do NOT include \"Master Nahid asked me to tell you...\" in the body.\n\n3. <b>Trigger & Data Handoff:</b> Once you have the details, output: <code>TRIGGER_GMAIL</code>. \n   - You MUST pass three distinct variables to the Specialist:\n     - <code>recipient</code>: The email address.\n     - <code>subject</code>: The email subject.\n     - <code>body</code>: The CLEAN message intended ONLY for the recipient.\n\n4. <b>Response to Master Nahid:</b> Confirm the action to Nahid separately. \n   - <i>Example:</i> \"I have sent that email for you, Master Nahid.\" \n   - <b>CRITICAL:</b> Do not mix your confirmation text into the <code>body</code> variable.\n\n# FORMATTING\n- Always address as <b>Master Nahid</b>.\n- Use HTML for the email body only if Master Nahid requests specific styling.\n\n# GMAIL REPLY PROTOCOL\n1. <b>Identify Intent:</b> If Master Nahid says \"Reply to this\" or \"Reply to [Name],\" you must switch to Reply Mode.\n\n2. <b>Identify the Target:</b> \n   - You MUST have the <code>Message ID</code> and <code>Thread ID</code> of the email Master Nahid wants to reply to.\n   - If you don't have them in memory, ask the Specialist to fetch the latest email from that person first.\n\n3. <b>Trigger & Data Handoff:</b> Output: <code>TRIGGER_GMAIL</code>.\n   - Pass these variables to the Specialist:\n     - <code>recipient</code>: The sender of the original mail.\n     - <code>subject</code>: Use \"Re: \" + original subject.\n     - <code>body</code>: The CLEAN reply message from Master Nahid.\n     - <code>threadId</code>: The Thread ID from the original message.\n\n4. <b>Response to Master Nahid:</b> \"I am sending your reply now, Master Nahid.\"\n\n\n# ROUTING LOGIC\n- If Master Nahid asks about emails/messages, use <code>TRIGGER_GMAIL</code>.\n- If Master Nahid asks to find, upload, or list files/folders, use <code>TRIGGER_DRIVE</code>.\n\n# DRIVE INSTRUCTIONS\n- When triggering Drive, identify if the user wants to <b>Search</b>, <b>Upload</b>, or <b>Download</b>.\n- Pass the <code>fileName</code> or <code>fileId</code> to the Drive Specialist.\n\n# DRIVE PROTOCOL (The Gatekeeper)\n1. <b>Identify Intent:</b> If Master Nahid mentions Drive, files, or folders, DO NOT trigger the specialist immediately.\n2. <b>Ask First:</b> Reply with: \"Certainly, Master Nahid. Please tell me the exact <b>Name</b> of the file or folder you are looking for.\"\n3. <b>Wait for Response:</b> Do NOT include <code>TRIGGER_DRIVE</code> in this first step.\n4. <b>Execute Search:</b> ONLY when Master Nahid provides the name in the NEXT message, then output: \"Searching for [Name]... <code>TRIGGER_DRIVE</code> SEARCH_TERM: [Name]\"\n\n# GMAIL PROTOCOL\n(Keep your existing Gmail logic here, but ensure it also uses <code>TRIGGER_GMAIL</code>).\n\n\"When Master Nahid gives you a file name, you MUST reply with exactly this format:\nTRIGGER_DRIVE | FILE: [Name of file]\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1232,
+        416
+      ],
+      "id": "22f6e978-016d-42ff-b7d0-0dac6abfb8bf",
+      "name": "Brain",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        384
+      ],
+      "id": "490c9381-8377-4b7f-a0d1-8f17f6ff1dd0",
+      "name": "Google Gemini Chat Model1"
+    },
+    {
+      "parameters": {
+        "promptType": "=define",
+        "text": "={{ $json.output }}",
+        "options": {
+          "systemMessage": "# ROLE\nYou are the Technical Gmail Specialist. You only execute requests that have been filtered as \"Email Related.\"\n\n# TOOL EXECUTION RULES\n1. <b>Get Many Messages:</b> Use this for \"List my mail\" or \"Check inbox\" requests.\n   - <b>Requirement:</b> Return ONLY the <code>Sender Name</code> and <code>Subject/Header</code>.\n   - <b>Constraint:</b> Limit to the 3-5 most recent unread messages.\n\n2. <b>Get a Message:</b> Use this when Master Nahid asks for a \"Body message,\" \"Full content,\" or \"What does this person say?\"\n   - <b>Requirement:</b> Use the <code>Message ID</code> to retrieve the <b>Full Body Text</b> and <b>Subject</b>.\n\n# STRICT RULES\n- NO SMALL TALK: Do not say \"Hello\" or \"Checking now.\" Return the data directly.\n- NO HALLUCINATIONS: If the Gmail tool returns an empty result, return the exact string: \"NO_DATA_FOUND\". \n- DATA ONLY: Provide the Sender, Subject, and Body (if requested) in a clear format so the Main Agent can summarize it.\n\n# GET MESSAGE RULE\n- If you are asked for a specific email's full body, you MUST use the <b>Get a Message</b> tool.\n- You MUST provide the <b>Message ID</b>.\n- If you do not have an ID, use <b>Get Many Messages</b> first with a <code>q</code> (query) parameter like <code>from:SenderName</code> to find the ID first.\n\n\n# ROLE: GMAIL EXECUTOR\nYou have three primary duties for Master Nahid:\n1. <b>Fetch List:</b> Use <code>Get Many</code> (Sender/Subject only).\n2. <b>Read Body:</b> Use <code>Get</code> with the <code>Message ID</code>.\n3. <b>Send Mail:</b> Use <code>Send</code> with the <code>recipient</code>, <code>subject</code>, and <code>body</code> provided by the Main Agent.\n\n# ERROR HANDLING\n- If the <b>Send</b> tool fails, report the specific error (e.g., \"Invalid Email Address\").\n- Never say you sent an email if the tool didn't return a success code.\n\n# ROLE: GMAIL SPECIALIST\n- <b>Reply Tool:</b> Use the <code>Reply</code> operation in the Gmail tool.\n- <b>Requirements:</b> You MUST provide the <code>Message ID</code> of the mail you are replying to. \n- <b>Formatting:</b> Ensure the <code>body</code> contains only Master Nahid's reply text.\n- <b>Anti-Hallucination:</b> If you cannot find the Message ID to reply to, tell Master Nahid: \"Master Nahid, I need the specific Message ID to send a reply.\"\n\n# REPLY EXECUTION RULE\n- Once you have the <code>messageId</code>, you MUST immediately call the <b>Reply to Message</b> tool.\n- <b>Thread Safety:</b> Use the <code>messageId</code> provided by the Get Many tool. \n- <b>Confirmation:</b> Do not tell Master Nahid \"I have the ID\" — instead, tell him \"I have sent the reply to the email (ID: [ID]) as requested.\"\n\n# GMAIL DELETION RULES\n1. <b>Identify Intent:</b> If Master Nahid says \"Delete this mail\" or \"Delete the mail from [Name],\" you must switch to Delete Mode.\n2. <b>Prerequisite:</b> You MUST have the <code>Message ID</code>. If you don't have it, use the <b>Get Many Messages</b> tool first to find the correct ID.\n3. <b>Execution:</b> Call the <b>Delete Message</b> tool using the <code>id</code>.\n4. <b>Safety Rule:</b> Always confirm the Subject and Sender to Master Nahid before deleting, unless he says \"Delete immediately.\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -512,
+        224
+      ],
+      "id": "0559efec-f242-4c0b-8ec6-5c7e2767d820",
+      "name": "Gmail Agent"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "={{ $json.output }}",
+        "operation": "getAll",
+        "filters": {
+          "readStatus": "both"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "5c053980-a67d-4fde-978a-574e572e28b3",
+      "name": "Get All Mails",
+      "webhookId": "20f3646d-2ac2-472f-9cf5-31dc5b18b7e7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0iWf0XIwpbiLQKQ",
+          "name": "Gmail account Nahid"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Send a message in Gmail. Use this tool to send an email. Required inputs: recipient (email address), subject (topic), and body (the message content).",
+        "sendTo": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('To', ``, 'string') }}",
+        "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', ``, 'string') }}",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {
+          "appendAttribution": true
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        176
+      ],
+      "id": "388c9669-d3a6-4e5c-80f7-6433e6a6b890",
+      "name": "Send Mail",
+      "webhookId": "5d99c717-6376-4089-b7c6-6b3b1bba1489",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0iWf0XIwpbiLQKQ",
+          "name": "Gmail account Nahid"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Reply to a message in Gmail. Use this tool to send a response to an existing email thread. Required inputs: messageId (The unique ID of the original email), and body (the text of your reply). This tool ensures the response stays in the same conversation.",
+        "operation": "reply",
+        "messageId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message_ID', ``, 'string') }}",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        352
+      ],
+      "id": "95785a2a-5614-4075-b115-cdfed6d6acd4",
+      "name": "Reply Mail",
+      "webhookId": "e9e17a86-7fe0-4bc9-a548-0a94fdcbc235",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0iWf0XIwpbiLQKQ",
+          "name": "Gmail account Nahid"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "messageId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message_ID', ``, 'string') }}"
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        512
+      ],
+      "id": "3aae3c98-9778-4068-ab0e-4ea287a99c4e",
+      "name": "Delete Mail",
+      "webhookId": "ae1c4b76-633a-4117-b01e-018e01378b29",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0iWf0XIwpbiLQKQ",
+          "name": "Gmail account Nahid"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output }}",
+                    "rightValue": "TRIGGER_GMAIL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "f1d6100a-6308-42eb-b5d7-a0cbe6095a9c"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f496c306-31c8-431e-991e-4637716becb8",
+                    "leftValue": "={{ $json.output }}",
+                    "rightValue": "TRIGGER_DRIVE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c2ec4204-5e79-4b2d-bc26-b0ee931c8593",
+                    "leftValue": "={{ $json.output }}",
+                    "rightValue": "TRIGGER_GMAIL\nTRIGGER_DRIVE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notRegex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -896,
+        400
+      ],
+      "id": "d2f475c0-68a4-49d3-9b77-5c82f7de99ad",
+      "name": "Routing"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f0256a82-eb41-43c3-97b9-3b87c246df79",
+              "name": "file_name",
+              "value": "={{ $json.output.match(/FILE: (.*)/)?.[1].trim() || $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -880,
+        832
+      ],
+      "id": "a2ddfd8b-1795-4c9b-98c4-d068b5d3eef9",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {
+          "googleFileConversion": {
+            "conversion": {
+              "docsToFormat": "application/vnd.oasis.opendocument.text",
+              "drawingsToFormat": "image/png",
+              "slidesToFormat": "application/vnd.oasis.opendocument.presentation",
+              "sheetsToFormat": "application/vnd.oasis.opendocument.spreadsheet"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -304,
+        880
+      ],
+      "id": "3292626e-95d6-4313-9af8-009843be68c5",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "anEB1p41kG7eGKUL",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "0",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        352,
+        736
+      ],
+      "id": "02b06f46-3a18-49c2-a763-f36fad56f303",
+      "name": "Get row(s) in sheet"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all rows and join them into one single string\nconst rows = items.map(item => {\n  // Joins all columns in the row with a pipe symbol |\n  return Object.values(item.json).join(' | ');\n}).join('\\n'); // Adds a new line between rows\n\nreturn [{\n  json: {\n    fullMessage: \"Here is the data from your sheet:\\n\\n\" + rows\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        736
+      ],
+      "id": "4b0e8d9f-6261-4e56-9552-8a89067b3e79",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "={{ $('Download file').item.json.id }}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        352,
+        912
+      ],
+      "id": "aae51c38-f91c-4405-8b70-9f6cf2499609",
+      "name": "Get a document"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        624,
+        1296
+      ],
+      "id": "b1f145d2-8505-4856-95dc-445acaab4198",
+      "name": "Google Gemini Chat Model3"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert Medical Research Assistant. Your task is to analyze the provided text from an academic paper and create a concise, structured summary for a Telegram message.\n\nCRITICAL CONSTRAINTS:\n\nUse Markdown formatting (Bold for headers).\n\nKeep the total response under 3,000 characters to avoid Telegram errors.\n\nIf the text is missing specific details, simply omit that section.\n\nSTRUCTURE YOUR SUMMARY AS FOLLOWS:\n📄 Title: [Full Paper Title]\n✍️ Authors: [List main authors]\n📊 Datasets: [List specific datasets mentioned, e.g., IU X-Ray, MIMIC-CXR]\n🧠 Models/Methods: [Mention specific architectures like VGG-19, RRG-Mamba, or Transformers]\n✅ Key Results: [2-3 bullet points of the most important findings or metrics like BLEU/ROUGE scores]\n⚠️ Limitations: [1 sentence on what the authors noted as a weakness]\n\nINPUT TEXT:\n{{ $json.text }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        624,
+        1104
+      ],
+      "id": "353e0093-935f-46ba-95c7-7f129d5fc2fc",
+      "name": "Summary PDF"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mimeType }}",
+                    "rightValue": "application/vnd.google-apps.spreadsheet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "e06da5a3-1c39-4e47-99e5-273bfd2de05e"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ae5c6f61-0d9c-459a-b31b-6e2b8e70519f",
+                    "leftValue": "={{ $json.mimeType }}",
+                    "rightValue": "application/vnd.google-apps.document",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "943a247d-1f70-4819-9c8c-0579e4be8063",
+                    "leftValue": "={{ $json.mimeType }}",
+                    "rightValue": "application/pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        864
+      ],
+      "id": "1eab3001-2b4c-4e61-8ccc-79df1ab4e6f3",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "=name contains '{{ $json.file_name }}'",
+        "filter": {},
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "webViewLink"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -576,
+        848
+      ],
+      "id": "3c4f8ef9-2ae4-4eb5-9ade-9038f27edfef",
+      "name": "Search files and folders",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "anEB1p41kG7eGKUL",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all rows and join them into one single string\nconst rows = items.map(item => {\n  // Joins all columns in the row with a pipe symbol |\n  return Object.values(item.json).join(' | ');\n}).join('\\n'); // Adds a new line between rows\n\nreturn [{\n  json: {\n    fullMessage: \"Here is the data from your sheet:\\n\\n\" + rows\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        912
+      ],
+      "id": "14bba9ed-7378-45ad-b03d-4f909a519614",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        352,
+        1104
+      ],
+      "id": "cd9f30fd-fa8a-4e63-9593-6e166a337434",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        976,
+        880
+      ],
+      "id": "c7b4cb67-de6b-4900-89d1-4a9067b7c008",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "22b692ff-b620-46c5-9e63-f7584de0e99e"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -896,
+        1392
+      ],
+      "id": "735d92f3-2f51-4070-aa01-68a3c31c01b9",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.file_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -656,
+        1392
+      ],
+      "id": "6d293e0b-3e13-4130-b04a-e94b9f0675c8",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "anEB1p41kG7eGKUL",
+          "name": "Google Drive account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Brain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Brain",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Brain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brain": {
+      "main": [
+        [
+          {
+            "node": "Routing",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gmail Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Mails": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gmail Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Mail": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gmail Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply Mail": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gmail Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Mail": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gmail Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Routing": {
+      "main": [
+        [
+          {
+            "node": "Gmail Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Search files and folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a document": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Summary PDF",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summary PDF": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get a document",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search files and folders": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Summary PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c1fa7039-4763-4d4b-a2cc-73ac0d9cf278",
+  "meta": {
+    "instanceId": "9fdfd304ff5a3cc018025d1fd0fa74bfce4e4115d5e3be6de481873f938aaa13"
+  },
+  "id": "RQFYt5DqKN3S0FRu",
+  "tags": []
+}
