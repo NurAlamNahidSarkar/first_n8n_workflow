@@ -1,0 +1,717 @@
+{
+  "name": "KODA [Nahid]",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -880,
+        192
+      ],
+      "id": "266bde2e-8cc6-45aa-b4de-7eb940abdfc9",
+      "name": "Telegram Trigger",
+      "webhookId": "cd8098aa-3640-4177-b305-6013e0514edb",
+      "credentials": {
+        "telegramApi": {
+          "id": "TbB39tuLUuh0c0j9",
+          "name": "Telegram account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "=You are KADO, a highly intelligent assistant. You have access to a long-term memory database. Before answering any question, always check our previous conversation history to see if I have already given you context, preferences, or rules. If I ask you to remember something, acknowledge it and apply it to all future answers. Always be highly detailed and accurate.\n\nCurrent date/time: {{ $now }}\n\n### ROUTING PROTOCOL\nYou act as a traffic controller for this system. Monitor the user's input for keywords like: mail, emails, inbox, send, reply, delete.\n\n1. IF the user's request is about GMAIL: \n   - You MUST start your response with the exact tag: [GMAIL_ACTION]\n   - Immediately following the tag, write the instruction for the Gmail Manager.\n   - Example: \"[GMAIL_ACTION] Fetch the unread emails using the Gmail tool.\"\n   - Do NOT say \"Hello\" or \"Sure\" if you are using this tag. Just output the tag and the instruction.\n\n2. IF the user's request is CASUAL (Greetings, \"Hello\", general questions):\n   - Do NOT use the [GMAIL_ACTION] tag.\n   - Reply naturally as KADO.\n\n### CRITICAL RULES\n- ONLY use [GMAIL_ACTION] if the intent is strictly email-related.\n- If the word \"mail\" is used in a non-email context (e.g., \"I'm waiting for a package in the mail\"), treat it as a CASUAL conversation.\n- Consistency is key: the Switch node depends on the exact spelling: [GMAIL_ACTION].\n\nCONTEXT AWARENESS: If the previous conversation was about emails (check your history!) and the user says \"Yes,\" \"More,\" \"Next,\" or \"Go ahead,\" you MUST continue the Gmail flow. In these cases, output the tag: [GMAIL_ACTION] Fetch the next batch of emails\n\nCALENDAR ROUTING RULE: If the user wants to schedule a meeting, check their schedule, or set a reminder, use the tag: [CALENDAR_ACTION].\n\nExample: \"[CALENDAR_ACTION] Schedule a meeting with Mark tomorrow at 10 AM titled 'Project Sync'.\"\n\nExample: \"[CALENDAR_ACTION] What is on my schedule for Tuesday?\"\n\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -608,
+        192
+      ],
+      "id": "10419fd9-1f64-4faa-a5e8-3140f6e3ebbf",
+      "name": "Brain"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        432
+      ],
+      "id": "6fb7d826-d757-4175-8815-d1edddc8d6c1",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "a75DiPsYqPsL54vr",
+          "name": "Google Gemini(PaLM) Api account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output }}",
+                    "rightValue": ".*\\[GMAIL_ACTION\\].*",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    },
+                    "id": "eb5e14b3-892f-4366-b1e1-4521fe5117b3"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Gmail Path"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "39a12b08-8c70-45de-8f71-42187a08ac82",
+                    "leftValue": "={{ $json.output }}",
+                    "rightValue": ".*\\[CALENDAR_ACTION\\].*",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -304,
+        192
+      ],
+      "id": "c34db785-d9a7-4cea-a83a-d13403895c2e",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "options": {
+          "systemMessage": "=You are the Gmail Specialist for the KADO assistant system. Your sole purpose is to handle email-related tasks using your provided tools.\n\n### OPERATION RULES:\n1. DATA SOURCE: You will receive a request starting with [GMAIL_ACTION]. Ignore the tag itself and focus on the instruction following it (e.g., \"Fetch unread emails\").\n2. TOOL USAGE: Use the \"Get Many Messages\" tool (or other Gmail tools) to fulfill the request. \n3. NO HALLUCINATION: If the tool returns no emails, state clearly: \"I checked your inbox but didn't find any matching emails.\" Never invent fake emails.\n\n### RESPONSE FORMATTING (For Telegram):\n1. CLEANING: Do NOT use angle brackets \"<\" or \">\" in your final response. Replace them with parentheses \"( )\" or remove them. (This prevents Telegram API errors).\n2. CONCISE SUMMARY: If listing multiple emails, provide:\n   - 📧 **Subject**\n   - 👤 **From** (Name only, no email address brackets)\n   - 📅 **Date**\n3. CHARACTER LIMIT: Keep your total response under 4,000 characters.\n\n### TONE:\nBe professional, efficient, and helpful. Do not repeat the [GMAIL_ACTION] tag in your reply to the user.\n\n\n### EMERGENCY OVERRIDE:\nWhen you receive a request containing a recipient email, a subject, and a message body, EXECUTE the 'Send Mail' tool immediately. \n\n- DO NOT ask \"Are you sure?\" if the user provided all the details.\n- DO NOT simulate a response.\n- Use the provided data to fill the 'To', 'Subject', and 'Body' fields of the tool.\n- After the tool runs, simply confirm to the user: \"Done! I've sent that email to [Recipient].\"\n\n### SPECIAL REPLY RULE:\nIf the user asks to \"reply\" to a specific email address (e.g., nahidsarkar127@gmail.com):\n1. Use the 'Get Many Messages' tool with the filter 'from:nahidsarkar127@gmail.com' to find the most recent email from them.\n2. From that result, extract the 'id' (Message ID).\n3. ONLY THEN, use the 'Reply' tool with that 'id' and the body \"Eid Mubarak\".\n4. If you absolutely cannot find a previous email to reply to, use the 'Send' tool instead to send a new email to that address.\n\n\n### DELETE PROTOCOL:\n1. IDENTIFICATION: To delete an email, you must have the specific Message ID.\n2. SAFETY WORKFLOW:\n   - If the user says \"Delete the last email from [Sender]\", first use 'Get Many Messages' to find that specific email and its ID.\n   - Show the Subject and Sender to the user and ask: \"Are you sure you want to delete this email?\"\n3. EXECUTION: Only call the 'Delete' (or Trash) tool after the user confirms with \"Delete it\".\n4. CONFIRMATION: Once done, say \"The email has been moved to the Trash/Deleted.\"\n\n### MARK AS READ PROTOCOL:\n1. ID REQUIREMENT: You cannot mark an email as read without its Message ID.\n2. WORKFLOW:\n   - If the user says \"Mark as read,\" first use the 'Get Many Messages' tool to find the relevant email(s).\n   - Once you have the 'id', use the 'Update' tool.\n   - Set the 'Remove Labels' parameter to 'UNREAD'. (In Gmail, removing the 'UNREAD' label is what marks it as read).\n3. CONFIRMATION: Tell the user: \"I've marked that email as read for you.\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "25a39a68-0939-4cc4-bf56-404e493f0985",
+      "name": "Gmail Manager"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        224
+      ],
+      "id": "908dd003-9b2c-4215-87ad-968a461c8b14",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "a75DiPsYqPsL54vr",
+          "name": "Google Gemini(PaLM) Api account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        272,
+        208
+      ],
+      "id": "2fad6e7d-d245-423f-a2a3-78ee348ab2d6",
+      "name": "Get many messages in Gmail",
+      "webhookId": "bd43cc66-4367-4bbe-888a-a0f149f77706",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0iWf0XIwpbiLQKQ",
+          "name": "Gmail account Nahid"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        0
+      ],
+      "id": "6932faef-11ce-4883-8738-1943c10be562",
+      "name": "Send a text message",
+      "webhookId": "e8332ea4-36a6-42c9-9eeb-93bf801366c7",
+      "credentials": {
+        "telegramApi": {
+          "id": "TbB39tuLUuh0c0j9",
+          "name": "Telegram account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Edit Fields').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -32,
+        880
+      ],
+      "id": "6585d1f0-1d00-4edf-8948-98637ed54a95",
+      "name": "Send a text message1",
+      "webhookId": "e8332ea4-36a6-42c9-9eeb-93bf801366c7",
+      "credentials": {
+        "telegramApi": {
+          "id": "TbB39tuLUuh0c0j9",
+          "name": "Telegram account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('To', ``, 'string') }}",
+        "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', ``, 'string') }}",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        432,
+        208
+      ],
+      "id": "3cf9532d-695b-4a8f-8159-015648b343ab",
+      "name": "Send a message in Gmail",
+      "webhookId": "8990c9d9-a054-46c7-ba1d-662de8578d15",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0iWf0XIwpbiLQKQ",
+          "name": "Gmail account Nahid"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').item.json.message.text }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        96,
+        224
+      ],
+      "id": "c5f65b9c-1524-4052-a705-08a2d170ff2b",
+      "name": "Simple Memory1"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message_ID', ``, 'string') }}",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        608,
+        208
+      ],
+      "id": "4146d3cf-b3ca-4fd4-b23d-e7da6ab20d71",
+      "name": "Reply to a message in Gmail",
+      "webhookId": "7d5aa629-4565-46ae-a279-03f689bab72d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0iWf0XIwpbiLQKQ",
+          "name": "Gmail account Nahid"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "messageId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message_ID', ``, 'string') }}"
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        784,
+        208
+      ],
+      "id": "2c5b3997-4269-45ff-9214-b1ad7b056ad5",
+      "name": "Delete a message in Gmail",
+      "webhookId": "347a1460-e7f9-42d1-980e-59aed4f32066",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0iWf0XIwpbiLQKQ",
+          "name": "Gmail account Nahid"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message_ID', ``, 'string') }}"
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        944,
+        208
+      ],
+      "id": "8e963da0-79f9-4d13-b111-34747a30175f",
+      "name": "Mark a message as read in Gmail",
+      "webhookId": "347a1460-e7f9-42d1-980e-59aed4f32066",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o0iWf0XIwpbiLQKQ",
+          "name": "Gmail account Nahid"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        656
+      ],
+      "id": "92d600ba-90f6-424b-8420-0156ee6b2939",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "a75DiPsYqPsL54vr",
+          "name": "Google Gemini(PaLM) Api account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=12345",
+        "contextWindowLength": 50
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        96,
+        656
+      ],
+      "id": "41bed781-aba6-4319-b9cb-8ea9181723d1",
+      "name": "Simple Memory2"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"] }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        432
+      ],
+      "id": "81a0e215-a56b-425b-81f4-1986d0718d15",
+      "name": "Send a text message2",
+      "webhookId": "e8332ea4-36a6-42c9-9eeb-93bf801366c7",
+      "credentials": {
+        "telegramApi": {
+          "id": "TbB39tuLUuh0c0j9",
+          "name": "Telegram account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "options": {
+          "systemMessage": "=### CALENDAR PROTOCOL\nYou are a precise Scheduling Assistant.\n\n1. TIMEZONE: You are based in Dhaka (UTC+6). \n   - Always assume the user means local time.\n   - Send timestamps to the tool for Asia/Dhaka.\n   - Example: 10:00 AM should be processed as '2026-03-16T10:00:00' with Timezone 'Asia/Dhaka'.\n\n2. FIELD MAPPING:\n   - USER TITLE -> Map to 'Summary' (This is the main event name).\n   - USER NOTES -> Map to 'Description'.\n\n3. MANDATORY CONFIRMATION:\n   After calling the tool, always repeat back: \"I've scheduled '[Summary]' for [Date] at [Time] Dhaka time.\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        0,
+        432
+      ],
+      "id": "11ffae1e-8011-4c32-b9df-ba4312bf6394",
+      "name": "Google Calendar"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "workfornuralamnahid@gmail.com",
+          "mode": "list",
+          "cachedResultName": "workfornuralamnahid@gmail.com"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', ``, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', ``, 'string') }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        256,
+        656
+      ],
+      "id": "8d5fc431-5ac9-4915-9be2-e936ac78afc5",
+      "name": "Create an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "V3nwIqa48GIEmjru",
+          "name": "Google Calendar account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.message.chat.id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -608,
+        400
+      ],
+      "id": "b20f0a9a-dd1b-41c8-8f9f-388034d5a42b",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "calendar": {
+          "__rl": true,
+          "value": "workfornuralamnahid@gmail.com",
+          "mode": "list",
+          "cachedResultName": "workfornuralamnahid@gmail.com"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        416,
+        656
+      ],
+      "id": "1ce27f5d-c560-4ad4-a215-4ec9131b320d",
+      "name": "Get an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "V3nwIqa48GIEmjru",
+          "name": "Google Calendar account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Brain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Brain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brain": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Gmail Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gmail Manager",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many messages in Gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gmail Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Manager": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message in Gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gmail Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "Gmail Manager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply to a message in Gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gmail Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete a message in Gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gmail Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark a message as read in Gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gmail Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Google Calendar",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory2": {
+      "ai_memory": [
+        [
+          {
+            "node": "Google Calendar",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "Google Calendar",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Brain",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "Google Calendar",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "410d36b1-bd70-485a-8a3d-5c200a297766",
+  "meta": {
+    "instanceId": "9fdfd304ff5a3cc018025d1fd0fa74bfce4e4115d5e3be6de481873f938aaa13"
+  },
+  "id": "EH2XduTWYRgN8A58",
+  "tags": []
+}
